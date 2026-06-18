@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Java Graphics Website</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0f0f1a;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            text-align: center;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #e94560, #0f3460, #53d8fb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p { color: #aaa; margin-top: 6px; font-size: 0.9rem; }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        canvas {
+            border-radius: 12px;
+            border: 2px solid #0f3460;
+            box-shadow: 0 0 30px rgba(83, 216, 251, 0.2);
+            background: #050510;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+
+        #btnShapes  { background: linear-gradient(135deg, #e94560, #c0392b); color: #fff; }
+        #btnAnim    { background: linear-gradient(135deg, #53d8fb, #1a6fa8); color: #fff; }
+        #btnClear   { background: linear-gradient(135deg, #555, #333); color: #fff; }
+        #btnBurst   { background: linear-gradient(135deg, #f7b733, #fc4a1a); color: #fff; }
+
+        footer {
+            margin-top: auto;
+            padding: 16px;
+            color: #555;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>✦ Java Graphics Website</h1>
+    <p>Powered by Spring Boot + HTML5 Canvas</p>
+</header>
+
+<div class="container">
+    <canvas id="canvas" width="800" height="450"></canvas>
+
+    <div class="controls">
+        <button id="btnShapes">Draw Shapes</button>
+        <button id="btnAnim">Animate Circles</button>
+        <button id="btnBurst">Particle Burst</button>
+        <button id="btnClear">Clear</button>
+    </div>
+</div>
+
+<footer>Java Graphics Website &#169; 2024</footer>
+
+<script th:inline="none">
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let animId = null;
+
+    function stopAnim() {
+        if (animId) { cancelAnimationFrame(animId); animId = null; }
+    }
+
+    function clearCanvas() {
+        stopAnim();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // --- Draw static shapes ---
+    function drawShapes() {
+        clearCanvas();
+        const shapes = [
+            { type: 'rect',    x: 60,  y: 60,  w: 160, h: 100, color: '#e94560' },
+            { type: 'circle',  x: 350, y: 120, r: 80,          color: '#53d8fb' },
+            { type: 'triangle',pts: [[600,40],[760,180],[520,180]], color: '#f7b733' },
+            { type: 'rect',    x: 80,  y: 250, w: 120, h: 120, color: '#8e44ad', round: true },
+            { type: 'star',    x: 400, y: 320, outer: 80, inner: 35, pts: 5, color: '#2ecc71' },
+            { type: 'donut',   x: 660, y: 310, r: 80,  ir: 40, color: '#e67e22' }
+        ];
+
+        shapes.forEach(s => {
+            ctx.beginPath();
+            ctx.fillStyle = s.color;
+            ctx.shadowColor = s.color;
+            ctx.shadowBlur = 18;
+
+            if (s.type === 'rect' && !s.round) {
+                ctx.fillRect(s.x, s.y, s.w, s.h);
+            } else if (s.type === 'rect' && s.round) {
+                ctx.roundRect(s.x, s.y, s.w, s.h, 20);
+                ctx.fill();
+            } else if (s.type === 'circle') {
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (s.type === 'triangle') {
+                ctx.moveTo(...s.pts[0]);
+                s.pts.slice(1).forEach(p => ctx.lineTo(...p));
+                ctx.closePath(); ctx.fill();
+            } else if (s.type === 'star') {
+                drawStar(s.x, s.y, s.pts, s.outer, s.inner, s.color);
+            } else if (s.type === 'donut') {
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.arc(s.x, s.y, s.ir, 0, Math.PI * 2, true);
+                ctx.fill('evenodd');
+            }
+            ctx.shadowBlur = 0;
+        });
+
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '14px Segoe UI';
+        ctx.fillText('Rectangle  |  Circle  |  Triangle  |  Rounded  |  Star  |  Donut', 60, 435);
+    }
+
+    function drawStar(cx, cy, spikes, outerR, innerR, color) {
+        let rot = (Math.PI / 2) * 3, step = Math.PI / spikes;
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 18;
+        ctx.moveTo(cx, cy - outerR);
+        for (let i = 0; i < spikes; i++) {
+            ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR); rot += step;
+            ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR); rot += step;
+        }
+        ctx.closePath(); ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // --- Animated bouncing circles ---
+    function animateCircles() {
+        clearCanvas();
+        const balls = Array.from({ length: 8 }, (_, i) => ({
+            x: Math.random() * 700 + 50,
+            y: Math.random() * 350 + 50,
+            r: 20 + Math.random() * 30,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4,
+            color: `hsl(${i * 45},80%,60%)`
+        }));
+
+        function loop() {
+            ctx.fillStyle = 'rgba(5,5,16,0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            balls.forEach(b => {
+                b.x += b.vx; b.y += b.vy;
+                if (b.x - b.r < 0 || b.x + b.r > canvas.width)  b.vx *= -1;
+                if (b.y - b.r < 0 || b.y + b.r > canvas.height) b.vy *= -1;
+
+                ctx.beginPath();
+                ctx.shadowColor = b.color;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = b.color;
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+            animId = requestAnimationFrame(loop);
+        }
+        loop();
+    }
+
+    // --- Particle burst on click / button ---
+    function particleBurst(ox, oy) {
+        clearCanvas();
+        const particles = Array.from({ length: 120 }, () => {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 6 + 1;
+            return {
+                x: ox, y: oy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                decay: Math.random() * 0.015 + 0.008,
+                r: Math.random() * 5 + 2,
+                color: `hsl(${Math.random() * 360},90%,65%)`
+            };
+        });
+
+        function loop() {
+            ctx.fillStyle = 'rgba(5,5,16,0.18)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let alive = false;
+            particles.forEach(p => {
+                if (p.life <= 0) return;
+                p.x += p.vx; p.y += p.vy;
+                p.vy += 0.08;
+                p.life -= p.decay;
+                alive = true;
+                ctx.globalAlpha = Math.max(p.life, 0);
+                ctx.beginPath();
+                ctx.fillStyle = p.color;
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            if (alive) animId = requestAnimationFrame(loop);
+        }
+        loop();
+    }
+
+    canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        stopAnim();
+        particleBurst(e.clientX - rect.left, e.clientY - rect.top);
+    });
+
+    document.getElementById('btnShapes').onclick  = drawShapes;
+    document.getElementById('btnAnim').onclick    = animateCircles;
+    document.getElementById('btnBurst').onclick   = () => particleBurst(canvas.width / 2, canvas.height / 2);
+    document.getElementById('btnClear').onclick   = clearCanvas;
+
+    drawShapes();
+</script>
+</body>
+</html>
